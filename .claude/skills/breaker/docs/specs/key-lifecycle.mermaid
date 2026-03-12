@@ -1,0 +1,56 @@
+---
+title: "Ciclo de Vida de una API Key (Seguridad)"
+---
+flowchart LR
+    subgraph INGESTION["📥 Ingesta"]
+        USER_INPUT["Cliente ingresa\nsu API Key de OpenAI\nen el dashboard"]
+        VALIDATE["Validar formato\ny permisos de la key\n(test call)"]
+        USER_INPUT --> VALIDATE
+    end
+
+    subgraph ENCRYPTION["🔐 Cifrado"]
+        ENCRYPT["Cifrar con Fernet\n(AES-128-CBC + HMAC)"]
+        STORE["Almacenar SOLO\nel ciphertext en\nPostgreSQL"]
+        PREFIX["Guardar prefix visible\nsk-...***abc\n(para identificación)"]
+        ENCRYPT --> STORE
+        ENCRYPT --> PREFIX
+    end
+
+    subgraph USAGE["⚡ Uso en Runtime"]
+        REQUEST["Request del cliente\nllega al proxy"]
+        DECRYPT["Descifrar en memoria\n(key vive ~100ms)"]
+        FORWARD["Forward al proveedor\ncon la key real"]
+        WIPE["Wipe de memoria\nKey se descarta\ninmediatamente"]
+        REQUEST --> DECRYPT --> FORWARD --> WIPE
+    end
+
+    subgraph ROTATION["🔄 Rotación"]
+        AUTO_ROTATE["Rotación trimestral\nde Master Key"]
+        RE_ENCRYPT["Re-cifrar todas\nlas keys con\nnueva Master Key"]
+        NOTIFY_ROTATE["Notificar al admin\n'Keys re-cifradas'"]
+        AUTO_ROTATE --> RE_ENCRYPT --> NOTIFY_ROTATE
+    end
+
+    subgraph REVOCATION["🚨 Revocación"]
+        REVOKE_BTN["Cliente presiona\n'Revocar Key'"]
+        INSTANT_REVOKE["Key marcada como\nrevocada en DB\n(< 1 segundo)"]
+        CACHE_FLUSH["Flush de cache\nen Redis"]
+        LOG_REVOKE["Audit log:\nquién, cuándo, por qué"]
+        REVOKE_BTN --> INSTANT_REVOKE --> CACHE_FLUSH --> LOG_REVOKE
+    end
+
+    INGESTION --> ENCRYPTION --> USAGE
+    USAGE -.->|"Cada 90 días"| ROTATION
+    USAGE -.->|"Si comprometida"| REVOCATION
+
+    classDef ingestStyle fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1
+    classDef encryptStyle fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+    classDef useStyle fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef rotateStyle fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C
+    classDef revokeStyle fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C
+
+    class USER_INPUT,VALIDATE ingestStyle
+    class ENCRYPT,STORE,PREFIX encryptStyle
+    class REQUEST,DECRYPT,FORWARD,WIPE useStyle
+    class AUTO_ROTATE,RE_ENCRYPT,NOTIFY_ROTATE rotateStyle
+    class REVOKE_BTN,INSTANT_REVOKE,CACHE_FLUSH,LOG_REVOKE revokeStyle

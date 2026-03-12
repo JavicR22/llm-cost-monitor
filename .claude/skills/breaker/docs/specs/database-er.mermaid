@@ -1,0 +1,260 @@
+---
+title: "LLM Cost Monitor - Diagrama Entidad-Relación (Conceptual)"
+---
+erDiagram
+
+    %% ============================================
+    %% CORE: Usuarios y Organizaciones
+    %% ============================================
+
+    organizations {
+        uuid id PK
+        string name
+        string slug
+        string plan "free | starter | pro | enterprise"
+        decimal monthly_budget_limit
+        decimal daily_budget_limit
+        boolean circuit_breaker_enabled
+        decimal circuit_breaker_threshold "$X en Y minutos"
+        int circuit_breaker_window_minutes
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    users {
+        uuid id PK
+        uuid organization_id FK
+        string email
+        string password_hash
+        string name
+        string role "owner | admin | viewer"
+        boolean mfa_enabled
+        string mfa_secret_encrypted
+        timestamp last_login_at
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% SEGURIDAD: API Keys
+    %% ============================================
+
+    service_api_keys {
+        uuid id PK
+        uuid organization_id FK
+        string key_hash "SHA-256 del key completo"
+        string key_prefix "lcm_...***abc"
+        string label "Production, Staging, etc"
+        boolean is_active
+        timestamp last_used_at
+        timestamp revoked_at
+        timestamp created_at
+    }
+
+    provider_api_keys {
+        uuid id PK
+        uuid organization_id FK
+        string provider "openai | anthropic | google | mistral"
+        string key_ciphertext "Fernet encrypted"
+        string key_prefix "sk-...***xyz"
+        boolean is_active
+        timestamp last_validated_at
+        timestamp revoked_at
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% CORE: Proveedores y Modelos
+    %% ============================================
+
+    providers {
+        uuid id PK
+        string name "openai | anthropic | google | mistral"
+        string display_name "OpenAI"
+        string base_url "https://api.openai.com"
+        boolean is_active
+    }
+
+    models {
+        uuid id PK
+        uuid provider_id FK
+        string name "gpt-4o"
+        string display_name "GPT-4o"
+        decimal cost_per_1m_input_tokens
+        decimal cost_per_1m_output_tokens
+        string category "flagship | mid | economy"
+        boolean supports_vision
+        boolean supports_code
+        boolean is_active
+        timestamp pricing_updated_at
+    }
+
+    %% ============================================
+    %% LOGS: Uso de Tokens (Time-Series)
+    %% ============================================
+
+    usage_logs {
+        uuid id PK
+        uuid organization_id FK
+        uuid service_api_key_id FK
+        uuid provider_api_key_id FK
+        uuid model_id FK
+        string task_type "code | vision | chat | summary | classification | rag"
+        int tokens_input
+        int tokens_output
+        decimal cost_usd
+        int latency_ms
+        string tags "JSON array de tags del cliente"
+        string request_ip
+        string user_agent
+        boolean is_streaming
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% MOTOR DE INTELIGENCIA
+    %% ============================================
+
+    model_benchmarks {
+        uuid id PK
+        uuid model_id FK
+        string task_type "code | vision | chat | summary | classification | rag"
+        decimal quality_score "0.0 a 1.0"
+        string quality_source "public_benchmark | shadow_test | client_feedback"
+        decimal avg_latency_ms
+        string recommendation "best_value | premium | economy | overkill"
+        timestamp updated_at
+    }
+
+    optimization_suggestions {
+        uuid id PK
+        uuid organization_id FK
+        uuid current_model_id FK "Modelo que usa actualmente"
+        uuid suggested_model_id FK "Modelo recomendado"
+        string task_type
+        int affected_requests_count "Requests en los ultimos 30 dias"
+        decimal current_monthly_cost
+        decimal projected_monthly_cost
+        decimal estimated_savings
+        decimal quality_current
+        decimal quality_suggested
+        string status "pending | accepted | rejected | dismissed"
+        string rejection_reason
+        timestamp created_at
+        timestamp resolved_at
+    }
+
+    shadow_test_results {
+        uuid id PK
+        uuid organization_id FK
+        uuid original_model_id FK
+        uuid test_model_id FK
+        string task_type
+        decimal similarity_score "Cosine similarity de respuestas"
+        decimal cost_original
+        decimal cost_test
+        int latency_original_ms
+        int latency_test_ms
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% ALERTAS Y NOTIFICACIONES
+    %% ============================================
+
+    alert_rules {
+        uuid id PK
+        uuid organization_id FK
+        string type "budget_soft | budget_hard | anomaly | circuit_breaker"
+        string scope "daily | monthly | hourly"
+        decimal threshold_value
+        decimal anomaly_multiplier "ej: 3.0 = 3x el promedio"
+        boolean is_active
+        timestamp created_at
+    }
+
+    alert_events {
+        uuid id PK
+        uuid organization_id FK
+        uuid alert_rule_id FK
+        string severity "info | warning | critical"
+        string type "soft_limit | hard_limit | anomaly | circuit_breaker"
+        string message
+        decimal triggered_value "Gasto que disparo la alerta"
+        decimal threshold_value "Limite configurado"
+        boolean notification_sent
+        string notification_channels "JSON: slack, email, sms"
+        timestamp created_at
+    }
+
+    notification_channels {
+        uuid id PK
+        uuid organization_id FK
+        string type "slack | email | sms"
+        string config_encrypted "Fernet: webhook URL, email, phone"
+        boolean is_active
+        timestamp last_sent_at
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% AUDIT LOG
+    %% ============================================
+
+    audit_logs {
+        uuid id PK
+        uuid organization_id FK
+        uuid user_id FK
+        string action "key_created | key_revoked | login | budget_changed | circuit_breaker_triggered"
+        string entity_type "provider_api_key | service_api_key | alert_rule | organization"
+        uuid entity_id
+        string details "JSON con before/after"
+        string ip_address
+        string user_agent
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% TAGS (Etiquetado de Costos)
+    %% ============================================
+
+    tags {
+        uuid id PK
+        uuid organization_id FK
+        string name "feature:chatbot | dept:engineering | env:production"
+        string color
+        timestamp created_at
+    }
+
+    %% ============================================
+    %% RELACIONES
+    %% ============================================
+
+    organizations ||--o{ users : "tiene"
+    organizations ||--o{ service_api_keys : "tiene"
+    organizations ||--o{ provider_api_keys : "tiene"
+    organizations ||--o{ usage_logs : "genera"
+    organizations ||--o{ alert_rules : "configura"
+    organizations ||--o{ alert_events : "recibe"
+    organizations ||--o{ notification_channels : "configura"
+    organizations ||--o{ optimization_suggestions : "recibe"
+    organizations ||--o{ shadow_test_results : "genera"
+    organizations ||--o{ audit_logs : "registra"
+    organizations ||--o{ tags : "define"
+
+    providers ||--o{ models : "ofrece"
+    providers ||--o{ provider_api_keys : "pertenece a"
+
+    models ||--o{ usage_logs : "usado en"
+    models ||--o{ model_benchmarks : "tiene scores"
+    models ||--o{ optimization_suggestions : "modelo actual"
+    models ||--o{ optimization_suggestions : "modelo sugerido"
+    models ||--o{ shadow_test_results : "modelo original"
+    models ||--o{ shadow_test_results : "modelo test"
+
+    service_api_keys ||--o{ usage_logs : "autentica"
+    provider_api_keys ||--o{ usage_logs : "usa"
+
+    alert_rules ||--o{ alert_events : "dispara"
+
+    users ||--o{ audit_logs : "ejecuta"

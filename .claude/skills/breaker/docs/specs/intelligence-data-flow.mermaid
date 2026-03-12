@@ -1,0 +1,55 @@
+---
+title: "Motor de Inteligencia - Flujo de Datos entre Tablas"
+---
+flowchart LR
+    subgraph INPUT["📥 Datos de Entrada"]
+        UL["usage_logs\n• model_id\n• task_type\n• tokens\n• cost\n• timestamp"]
+    end
+
+    subgraph AGGREGATION["📊 Agregación (Batch Diario)"]
+        AGG["Agregar por:\n• organization_id\n• model_id\n• task_type\n\nResultado:\n• count_requests\n• total_cost\n• avg_tokens"]
+    end
+
+    subgraph MATRIX["🧠 Benchmark Matrix"]
+        MB["model_benchmarks\n• model_id\n• task_type\n• quality_score\n• recommendation"]
+    end
+
+    subgraph COMPARISON["⚖️ Comparación"]
+        CMP["Para cada par\n(model + task_type):\n\n¿Existe un modelo\ncon quality ≥ 85%\ny cost menor?"]
+    end
+
+    subgraph SHADOW["🔬 Shadow Testing"]
+        ST["shadow_test_results\n• original_model\n• test_model\n• similarity_score\n• cost_diff"]
+    end
+
+    subgraph OUTPUT["💡 Sugerencias"]
+        OS["optimization_suggestions\n• current_model\n• suggested_model\n• estimated_savings\n• quality_delta\n• status"]
+    end
+
+    subgraph FEEDBACK["🔄 Feedback Loop"]
+        FB["Cliente acepta/rechaza\nsugerencia\n\n→ Actualiza quality_score\nen model_benchmarks"]
+    end
+
+    UL --> AGG
+    AGG --> CMP
+    MB --> CMP
+    CMP -->|"Si hay alternativa\nmejor"| OS
+    ST -->|"Actualiza scores\ncon datos reales"| MB
+    OS --> FB
+    FB -->|"Ajusta scores\npersonalizados"| MB
+
+    classDef inputS fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1
+    classDef aggS fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef matrixS fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+    classDef cmpS fill:#FFF8E1,stroke:#F57F17,stroke-width:2px,color:#F57F17
+    classDef shadowS fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C
+    classDef outS fill:#FCE4EC,stroke:#C62828,stroke-width:2px,color:#B71C1C
+    classDef fbS fill:#E0F7FA,stroke:#00695C,stroke-width:2px,color:#004D40
+
+    class UL inputS
+    class AGG aggS
+    class MB matrixS
+    class CMP cmpS
+    class ST shadowS
+    class OS outS
+    class FB fbS

@@ -1,0 +1,55 @@
+---
+title: "Flujo de Protección contra Abuso de Tokens"
+---
+sequenceDiagram
+    participant App as App del Cliente
+    participant Proxy as Proxy (FastAPI)
+    participant Redis as Redis
+    participant DB as PostgreSQL
+    participant Alert as Alert Engine
+    participant Owner as Cliente (Owner)
+
+    App->>Proxy: Request al LLM
+
+    Note over Proxy,Redis: ═══ CHECK 1: Rate Limiting ═══
+    Proxy->>Redis: ¿Requests/minuto del cliente?
+    Redis-->>Proxy: 145 requests (límite: 200/min)
+    Note over Proxy: ✅ Dentro del límite
+
+    Note over Proxy,Redis: ═══ CHECK 2: Budget Check ═══
+    Proxy->>Redis: ¿Gasto acumulado hoy?
+    Redis-->>Proxy: $47.30 (límite diario: $100)
+    Note over Proxy: ✅ Dentro del presupuesto
+
+    Note over Proxy,Redis: ═══ CHECK 3: Anomaly Detection ═══
+    Proxy->>Redis: ¿Gasto última hora?
+    Redis-->>Proxy: $28.50 (promedio hora: $8.00)
+    Note over Proxy: ⚠️ 3.5x el promedio → ALERTA
+
+    Proxy->>Alert: Disparar alerta de anomalía
+    Alert->>Owner: 🔔 Slack: "Gasto inusual detectado:<br/>$28.50/hora (promedio $8.00).<br/>¿Deseas pausar el servicio?"
+
+    Note over Proxy: La request CONTINÚA<br/>(soft limit, solo alerta)
+
+    Proxy->>App: Response normal
+
+    Note over App,Owner: ═══ ESCENARIO: Se supera HARD LIMIT ═══
+
+    App->>Proxy: Otra request
+    Proxy->>Redis: ¿Gasto acumulado hoy?
+    Redis-->>Proxy: $100.20 (límite diario: $100)
+    Note over Proxy: 🛑 HARD LIMIT alcanzado
+
+    Proxy-->>App: HTTP 429: Budget exceeded<br/>{"error": "daily_budget_exceeded",<br/>"limit": "$100", "spent": "$100.20",<br/>"resets_at": "2026-03-12T00:00:00Z"}
+
+    Proxy->>Alert: Disparar alerta CRÍTICA
+    Alert->>Owner: 🚨 Email + Slack + SMS:<br/>"Presupuesto diario agotado.<br/>Todas las requests bloqueadas<br/>hasta mañana o hasta que<br/>aumentes el límite."
+
+    Note over App,Owner: ═══ ESCENARIO: Circuit Breaker ═══
+
+    Note over Proxy: Si $50+ en 5 minutos<br/>(posible bot en bucle)
+    Proxy->>Redis: CIRCUIT BREAKER: ON
+    Proxy-->>App: HTTP 429: Circuit breaker triggered
+    Proxy->>Alert: 🚨 CRÍTICA: Posible abuso
+    Alert->>Owner: "Detectamos $50 en 5 min.<br/>Servicio pausado automáticamente.<br/>Revisa tu aplicación."
+    Alert->>DB: Log forense: IPs, user-agents,<br/>patrones de requests

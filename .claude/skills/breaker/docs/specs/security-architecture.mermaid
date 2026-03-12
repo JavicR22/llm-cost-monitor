@@ -1,0 +1,90 @@
+---
+title: "LLM Cost Monitor - Arquitectura de Seguridad"
+---
+flowchart TB
+    subgraph THREAT_MODEL["🎯 Modelo de Amenazas"]
+        T1["T1: Filtración de API Keys\nen base de datos"]
+        T2["T2: Interceptación de keys\nen tránsito (MITM)"]
+        T3["T3: Abuso masivo de tokens\n(bot en bucle / usuario malicioso)"]
+        T4["T4: Acceso no autorizado\nal dashboard"]
+        T5["T5: Inyección SQL / XSS\nen endpoints"]
+        T6["T6: Ataque a las API Keys\nde NUESTRO servicio"]
+    end
+
+    subgraph LAYER1["🔐 Capa 1: Cifrado en Reposo"]
+        direction TB
+        FERNET["Fernet Encryption\n(AES-128-CBC + HMAC-SHA256)"]
+        MASTER_KEY["Master Key\n(Variable de entorno)\nNUNCA en código"]
+        KEY_ROTATION["Key Rotation\nRotación trimestral\nautomática"]
+        FERNET --> MASTER_KEY
+        MASTER_KEY --> KEY_ROTATION
+    end
+
+    subgraph LAYER2["🛡️ Capa 2: Cifrado en Tránsito"]
+        direction TB
+        TLS["TLS 1.3\nTodo el tráfico HTTPS"]
+        CERT["Certificados SSL\n(Let's Encrypt / Cloudflare)"]
+        HSTS["HSTS Headers\nStrict-Transport-Security"]
+        TLS --> CERT --> HSTS
+    end
+
+    subgraph LAYER3["⚡ Capa 3: Protección contra Abuso"]
+        direction TB
+        RATE_LIMIT["Rate Limiting\nPor cliente, por modelo,\npor ventana de tiempo"]
+        BUDGET_HARD["Hard Budget Limits\nCorte automático al llegar\nal límite configurado"]
+        ANOMALY["Anomaly Detection\nPico > 3x del promedio\n→ Alerta + posible corte"]
+        CIRCUIT["Circuit Breaker\nSi un cliente supera $X\nen Y minutos → BLOQUEAR"]
+        RATE_LIMIT --> BUDGET_HARD --> ANOMALY --> CIRCUIT
+    end
+
+    subgraph LAYER4["🔑 Capa 4: Auth & Access Control"]
+        direction TB
+        JWT["JWT Tokens\n(RS256, expiran en 24h)"]
+        API_KEY_HASH["API Keys hasheadas\n(SHA-256, solo prefix visible)"]
+        RBAC["RBAC\n(Owner, Admin, Viewer)"]
+        MFA["MFA (TOTP)\nPara acciones sensibles"]
+        JWT --> API_KEY_HASH --> RBAC --> MFA
+    end
+
+    subgraph LAYER5["🧱 Capa 5: Defensa en Profundidad"]
+        direction TB
+        INPUT_VAL["Input Validation\nSanitización de todos\nlos inputs"]
+        CORS["CORS Restrictivo\nSolo dominios permitidos"]
+        CSP["Content Security Policy\nHeaders de seguridad"]
+        AUDIT["Audit Log\nRegistro inmutable de\ntodas las acciones sensibles"]
+        INPUT_VAL --> CORS --> CSP --> AUDIT
+    end
+
+    subgraph LAYER6["🚨 Capa 6: Respuesta a Incidentes"]
+        direction TB
+        REVOKE["Revocación Instantánea\n1 click = key inválida"]
+        NOTIFY_BREACH["Notificación Inmediata\nSlack + Email + SMS"]
+        KEY_REGEN["Regeneración de Keys\nNueva key automática\npost-revocación"]
+        FORENSIC["Forensic Log\nQuién usó la key,\ndesde qué IP, cuándo"]
+        REVOKE --> NOTIFY_BREACH --> KEY_REGEN --> FORENSIC
+    end
+
+    %% Threat to Defense mapping
+    T1 -.->|"Defensa"| LAYER1
+    T2 -.->|"Defensa"| LAYER2
+    T3 -.->|"Defensa"| LAYER3
+    T4 -.->|"Defensa"| LAYER4
+    T5 -.->|"Defensa"| LAYER5
+    T6 -.->|"Defensa"| LAYER4
+
+    %% Styles
+    classDef threatStyle fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C
+    classDef layer1Style fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+    classDef layer2Style fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1
+    classDef layer3Style fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef layer4Style fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C
+    classDef layer5Style fill:#FFF8E1,stroke:#F57F17,stroke-width:2px,color:#F57F17
+    classDef layer6Style fill:#FCE4EC,stroke:#C62828,stroke-width:2px,color:#B71C1C
+
+    class T1,T2,T3,T4,T5,T6 threatStyle
+    class FERNET,MASTER_KEY,KEY_ROTATION layer1Style
+    class TLS,CERT,HSTS layer2Style
+    class RATE_LIMIT,BUDGET_HARD,ANOMALY,CIRCUIT layer3Style
+    class JWT,API_KEY_HASH,RBAC,MFA layer4Style
+    class INPUT_VAL,CORS,CSP,AUDIT layer5Style
+    class REVOKE,NOTIFY_BREACH,KEY_REGEN,FORENSIC layer6Style
