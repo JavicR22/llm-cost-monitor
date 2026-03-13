@@ -17,3 +17,25 @@ export async function apiClient<T>(
   }
   return res.json();
 }
+
+/** Authed client — reads JWT from localStorage and adds Bearer header. */
+export async function authedClient<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+
+  return apiClient<T>(endpoint, {
+    ...options,
+    headers: {
+      ...options?.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
+
+/** SWR fetcher backed by authedClient. */
+export function authedFetcher<T>(url: string): Promise<T> {
+  return authedClient<T>(url);
+}

@@ -2,6 +2,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.proxy.openai import router as proxy_router
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -40,6 +41,7 @@ async def shutdown() -> None:
 
 
 app.include_router(v1_router)
+app.include_router(proxy_router)  # OpenAI-compatible proxy at /v1/chat/completions
 
 
 @app.get("/health", tags=["health"])
