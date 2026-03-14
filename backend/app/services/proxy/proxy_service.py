@@ -29,6 +29,7 @@ _SERVICE_KEY_CACHE_TTL = 300
 PROVIDER_URLS: dict[str, str] = {
     "openai": "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
 }
 
 
@@ -187,7 +188,7 @@ class ProxyService:
 # ------------------------------------------------------------------
 
 def _build_headers(provider: str, api_key: str) -> dict[str, str]:
-    if provider == "openai":
+    if provider in ("openai", "google"):
         return {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",

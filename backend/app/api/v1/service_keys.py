@@ -1,12 +1,13 @@
 from typing import Annotated
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 import redis.asyncio as aioredis
 
 from app.core.dependencies import DB, CurrentUser, get_redis
 from app.schemas.service_key import ServiceKeyCreate, ServiceKeyCreateResponse, ServiceKeyResponse
 from app.services.keys import service_key_service
+from app.services.security import audit_service
 
 router = APIRouter(prefix="/service-keys", tags=["service-keys"])
 
@@ -21,7 +22,11 @@ async def list_keys(user: CurrentUser, db: DB) -> list[ServiceKeyResponse]:
 
 @router.post("", response_model=ServiceKeyCreateResponse, status_code=201)
 async def create_key(
-    data: ServiceKeyCreate, user: CurrentUser, db: DB
+    data: ServiceKeyCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: CurrentUser,
+    db: DB,
 ) -> ServiceKeyCreateResponse:
     """
     Create a new service API key.
@@ -29,12 +34,29 @@ async def create_key(
     Requires owner or admin role.
     """
     _require_owner_or_admin(user)
-    return await service_key_service.create_key(db, user.organization_id, data)
+    result = await service_key_service.create_key(db, user.organization_id, data)
+    background_tasks.add_task(
+        audit_service.log,
+        org_id=user.organization_id,
+        user_id=user.id,
+        action="key_created",
+        entity_type="service_api_key",
+        entity_id=uuid.UUID(result.id),
+        details={"label": result.label, "prefix": result.key_prefix},
+        ip=request.client.host if request.client else None,
+        ua=request.headers.get("User-Agent"),
+    )
+    return result
 
 
 @router.delete("/{key_id}", response_model=ServiceKeyResponse)
 async def revoke_key(
-    key_id: uuid.UUID, user: CurrentUser, db: DB, redis: Redis
+    key_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: CurrentUser,
+    db: DB,
+    redis: Redis,
 ) -> ServiceKeyResponse:
     """
     Revoke a service API key immediately.
@@ -42,7 +64,19 @@ async def revoke_key(
     Requires owner or admin role.
     """
     _require_owner_or_admin(user)
-    return await service_key_service.revoke_key(db, redis, key_id, user.organization_id)
+    result = await service_key_service.revoke_key(db, redis, key_id, user.organization_id)
+    background_tasks.add_task(
+        audit_service.log,
+        org_id=user.organization_id,
+        user_id=user.id,
+        action="key_revoked",
+        entity_type="service_api_key",
+        entity_id=key_id,
+        details={"prefix": result.key_prefix},
+        ip=request.client.host if request.client else None,
+        ua=request.headers.get("User-Agent"),
+    )
+    return result
 
 
 def _require_owner_or_admin(user) -> None:

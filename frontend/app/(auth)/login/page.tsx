@@ -30,6 +30,7 @@ export default function LoginPage() {
       });
       localStorage.setItem("access_token", data.access_token);
       if (remember) localStorage.setItem("refresh_token", data.refresh_token);
+      document.cookie = `llm_monitor_token=${data.access_token}; path=/; max-age=604800; SameSite=Strict`;
       window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid credentials");

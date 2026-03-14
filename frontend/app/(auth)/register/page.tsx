@@ -40,13 +40,14 @@ export default function RegisterPage() {
       const data = await apiClient<RegisterResponse>("/api/v1/auth/register", {
         method: "POST",
         body: JSON.stringify({
-          full_name: form.fullName,
+          name: form.fullName,
           org_name: form.orgName,
           email: form.email,
           password: form.password,
         }),
       });
       localStorage.setItem("access_token", data.access_token);
+      document.cookie = `llm_monitor_token=${data.access_token}; path=/; max-age=604800; SameSite=Strict`;
       window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.");

@@ -111,8 +111,8 @@ async def _write_log(
             pricing = await get_model_pricing(model_name, db, redis)
 
             if not pricing:
-                log.warning(
-                    "usage_log_skipped_unknown_model",
+                log.error(
+                    "usage_log_skipped_unknown_model — add this model to the 'models' table",
                     model=model_name,
                     org_id=str(org_id),
                 )
@@ -136,6 +136,10 @@ async def _write_log(
                     user_agent=user_agent,
                 ),
             )
+
+            # Alert engine — runs in the same background task, after the log is written
+            from app.services.alerts.alert_engine import get_alert_engine
+            await get_alert_engine().post_request_tasks(org_id, cost)
 
             log.info(
                 "usage_logged",

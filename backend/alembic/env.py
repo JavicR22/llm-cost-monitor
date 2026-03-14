@@ -1,10 +1,18 @@
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.models import Base  # noqa: F401 — registers all models
+
+# Load .env for local dev (no-op if python-dotenv not installed or file missing)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+except ImportError:
+    pass
 
 config = context.config
 

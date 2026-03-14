@@ -16,23 +16,24 @@ import {
 
 type DateRange = "7" | "30" | "90";
 
-function fmtUsd(v: number) {
+function fmtUsd(v: number | string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
-  }).format(v);
+  }).format(Number(v));
 }
 
-function fmtNum(v: number) {
-  return new Intl.NumberFormat("en-US").format(v);
+function fmtNum(v: number | string) {
+  return new Intl.NumberFormat("en-US").format(Number(v));
 }
 
-function fmtTokens(v: number) {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
-  return String(v);
+function fmtTokens(v: number | string) {
+  const n = Number(v);
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export default function DashboardPage() {

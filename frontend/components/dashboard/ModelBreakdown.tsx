@@ -16,9 +16,10 @@ const MODEL_COLORS = [
   "#06B6D4", // cyan
 ];
 
-function fmtUsd(v: number) {
-  if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
-  return `$${v.toFixed(2)}`;
+function fmtUsd(v: number | string) {
+  const n = Number(v);
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${n.toFixed(2)}`;
 }
 
 export function ModelBreakdown({ data, loading }: ModelBreakdownProps) {
@@ -41,7 +42,7 @@ export function ModelBreakdown({ data, loading }: ModelBreakdownProps) {
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-[#F8FAFC]">{model.display_name}</span>
                 <div className="flex items-center gap-2 text-[#94A3B8]">
-                  <span>{model.pct_of_total.toFixed(1)}%</span>
+                  <span>{Number(model.pct_of_total).toFixed(1)}%</span>
                   <span className="font-semibold text-[#F8FAFC]">{fmtUsd(model.spend_usd)}</span>
                 </div>
               </div>

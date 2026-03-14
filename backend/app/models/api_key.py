@@ -46,6 +46,7 @@ class ProviderAPIKey(UUIDMixin, TimestampMixin, Base):
     provider: Mapped[str] = mapped_column(ProviderName, nullable=False)  # denormalized for fast lookups
     key_ciphertext: Mapped[str] = mapped_column(String(1000), nullable=False)  # Fernet ciphertext
     key_prefix: Mapped[str] = mapped_column(String(50), nullable=False)  # sk-...***xyz
+    label: Mapped[Optional[str]] = mapped_column(String(100))
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_validated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
