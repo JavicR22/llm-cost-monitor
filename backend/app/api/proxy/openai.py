@@ -97,6 +97,13 @@ async def chat_completions(
     # ------------------------------------------------------------------
     # 5a. Streaming
     # ------------------------------------------------------------------
+    # FinOps attribution — inherited from the authenticated service key
+    finops = {
+        "project_id": service_key.project_id,
+        "team_id": service_key.team_id,
+        "user_id": service_key.owner_user_id,
+    }
+
     if stream:
         # Inject include_usage so the last SSE chunk contains token counts
         body.setdefault("stream_options", {})
@@ -114,6 +121,7 @@ async def chat_completions(
             latency_ms=int((time.monotonic() - start_ms) * 1000),
             request_ip=request_ip,
             user_agent=user_agent,
+            **finops,
         )
 
         return StreamingResponse(
@@ -137,6 +145,7 @@ async def chat_completions(
         latency_ms=latency_ms,
         request_ip=request_ip,
         user_agent=user_agent,
+        **finops,
     )
 
     log.info(

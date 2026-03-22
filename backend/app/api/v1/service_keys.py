@@ -5,7 +5,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 import redis.asyncio as aioredis
 
 from app.core.dependencies import DB, CurrentUser, get_redis
-from app.schemas.service_key import ServiceKeyCreate, ServiceKeyCreateResponse, ServiceKeyResponse
+from app.schemas.service_key import (
+    ServiceKeyAssign,
+    ServiceKeyCreate,
+    ServiceKeyCreateResponse,
+    ServiceKeyResponse,
+)
 from app.services.keys import service_key_service
 from app.services.security import audit_service
 
@@ -46,6 +51,29 @@ async def create_key(
         ip=request.client.host if request.client else None,
         ua=request.headers.get("User-Agent"),
     )
+    return result
+
+
+@router.patch("/{key_id}/assign", response_model=ServiceKeyResponse)
+async def assign_key_layers(
+    key_id: uuid.UUID,
+    data: ServiceKeyAssign,
+    user: CurrentUser,
+    db: DB,
+    redis: Redis,
+) -> ServiceKeyResponse:
+    """
+    Assign a service key to a FinOps attribution layer (project / team / owner).
+    Pass null to clear a field.
+    Requires owner or admin role.
+    """
+    _require_owner_or_admin(user)
+    result = await service_key_service.assign_layers(db, key_id, user.organization_id, data)
+
+    # Invalidate project summary cache so member counts refresh immediately
+    if data.project_id is not None:
+        await redis.delete(f"lcm:project:{data.project_id}:summary")
+
     return result
 
 

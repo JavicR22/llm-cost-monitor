@@ -37,14 +37,36 @@ async def create_service_key(
     key_hash: str,
     key_prefix: str,
     label: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    owner_user_id: Optional[uuid.UUID] = None,
 ) -> ServiceAPIKey:
     key = ServiceAPIKey(
         organization_id=org_id,
         key_hash=key_hash,
         key_prefix=key_prefix,
         label=label,
+        project_id=project_id,
+        team_id=team_id,
+        owner_user_id=owner_user_id,
     )
     db.add(key)
+    await db.commit()
+    await db.refresh(key)
+    return key
+
+
+async def assign_service_key_layers(
+    db: AsyncSession,
+    key: ServiceAPIKey,
+    project_id: Optional[uuid.UUID],
+    team_id: Optional[uuid.UUID],
+    owner_user_id: Optional[uuid.UUID],
+) -> ServiceAPIKey:
+    """Update FinOps attribution fields. Pass None to clear a field."""
+    key.project_id = project_id
+    key.team_id = team_id
+    key.owner_user_id = owner_user_id
     await db.commit()
     await db.refresh(key)
     return key

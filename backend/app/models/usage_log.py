@@ -33,6 +33,17 @@ class UsageLog(UUIDMixin, Base):
         UUID(as_uuid=True), ForeignKey("models.id"), nullable=False, index=True
     )
 
+    # FinOps attribution — denormalized from the service key at log time
+    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    team_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     task_type: Mapped[str] = mapped_column(TaskType, nullable=False, server_default="chat")
     tokens_input: Mapped[int] = mapped_column(Integer, nullable=False)
     tokens_output: Mapped[int] = mapped_column(Integer, nullable=False)

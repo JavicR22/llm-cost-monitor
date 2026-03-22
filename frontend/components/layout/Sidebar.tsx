@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import useSWR from "swr";
+import { authedFetcher } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+// Items hidden from admin (developer) role
+const OWNER_ONLY_HREFS = new Set(["/dashboard/keys", "/dashboard/members"]);
 
 const NAV_ITEMS = [
   {
@@ -22,6 +27,29 @@ const NAV_ITEMS = [
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Projects",
+    href: "/dashboard/projects",
+    badge: null,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Members",
+    href: "/dashboard/members",
+    badge: null,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     ),
   },
@@ -78,20 +106,34 @@ const BADGE_COLORS = {
   green: "#10b981",
 } as const;
 
-interface SidebarProps {
-  userName?: string;
-  plan?: string;
+interface MeResponse {
+  name: string;
+  email: string;
+  role: string;
 }
 
-export function Sidebar({ userName = "Alex Rivera", plan = "Pro Plan" }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: me } = useSWR<MeResponse>("/api/v1/auth/me", authedFetcher);
+
+  const userName = me?.name ?? "…";
+  const plan = me?.role === "owner" ? "Owner" : me?.role === "admin" ? "Admin" : "Member";
 
   const initials = userName
     .split(" ")
+    .filter(Boolean)
     .map((n) => n[0])
     .join("")
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || "?";
+
+  function handleLogout() {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    document.cookie = "llm_monitor_token=; path=/; max-age=0";
+    router.push("/login");
+  }
 
   return (
     <aside className="flex h-screen w-60 flex-col bg-[#0F172A]">
@@ -109,7 +151,9 @@ export function Sidebar({ userName = "Alex Rivera", plan = "Pro Plan" }: Sidebar
 
       {/* Navigation */}
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) =>
+          me?.role === "admin" ? !OWNER_ONLY_HREFS.has(item.href) : true
+        ).map((item) => {
           const isActive =
             item.href === "/dashboard"
               ? pathname === "/dashboard"
@@ -158,6 +202,18 @@ export function Sidebar({ userName = "Alex Rivera", plan = "Pro Plan" }: Sidebar
               {plan}
             </span>
           </div>
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="shrink-0 text-[#64748B] transition-colors hover:text-[#EF4444]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
     </aside>

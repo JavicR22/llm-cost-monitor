@@ -8,6 +8,9 @@ from app.models.intelligence import ModelBenchmark, OptimizationSuggestion, Shad
 from app.models.alert import AlertRule, AlertEvent, NotificationChannel
 from app.models.audit_log import AuditLog
 from app.models.tag import Tag
+from app.models.project import Project
+from app.models.team import Team
+from app.models.developer_key import DeveloperAPIKey
 
 __all__ = [
     "Base",
@@ -26,4 +29,7 @@ __all__ = [
     "NotificationChannel",
     "AuditLog",
     "Tag",
+    "Project",
+    "Team",
+    "DeveloperAPIKey",
 ]

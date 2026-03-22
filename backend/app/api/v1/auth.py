@@ -106,4 +106,8 @@ async def me(user: CurrentUser) -> UserResponse:
         name=user.name,
         role=user.role,
         org_id=str(user.organization_id),
+        last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
+        assigned_project_id=user.assigned_project_id,
+        assigned_team_id=user.assigned_team_id,
+        has_seen_key_modal=user.has_seen_key_modal,
     )

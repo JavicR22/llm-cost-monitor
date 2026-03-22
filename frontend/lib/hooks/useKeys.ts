@@ -12,6 +12,9 @@ export interface ServiceKey {
   is_active: boolean;
   created_at: string;
   last_used_at: string | null;
+  project_id: string | null;
+  team_id: string | null;
+  owner_user_id: string | null;
 }
 
 export interface ServiceKeyCreated extends ServiceKey {
@@ -50,10 +53,32 @@ export function useProviderKeys() {
 // Mutations
 // ---------------------------------------------------------------------------
 
-export async function createServiceKey(label?: string): Promise<ServiceKeyCreated> {
+export async function createServiceKey(
+  label?: string,
+  projectId?: string | null
+): Promise<ServiceKeyCreated> {
   return authedClient<ServiceKeyCreated>("/api/v1/service-keys", {
     method: "POST",
-    body: JSON.stringify({ label: label || null }),
+    body: JSON.stringify({
+      label: label || null,
+      project_id: projectId ?? null,
+    }),
+  });
+}
+
+export async function assignServiceKey(
+  id: string,
+  projectId: string | null,
+  teamId: string | null = null,
+  ownerUserId: string | null = null
+): Promise<ServiceKey> {
+  return authedClient<ServiceKey>(`/api/v1/service-keys/${id}/assign`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      project_id: projectId,
+      team_id: teamId,
+      owner_user_id: ownerUserId,
+    }),
   });
 }
 

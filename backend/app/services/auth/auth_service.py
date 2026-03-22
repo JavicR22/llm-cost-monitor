@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -67,9 +68,30 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
     if not org or not org.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Organization is inactive")
 
+    is_first_login = user.last_login_at is None
+    user.last_login_at = datetime.now(timezone.utc)
+
+    # Auto-create a personal Service API Key on first login for admin (developer) users
+    personal_key: str | None = None
+    if user.role == "admin" and is_first_login:
+        from app.schemas.service_key import ServiceKeyCreate
+        from app.services.keys.service_key_service import create_key
+        key_result = await create_key(
+            db,
+            org_id=user.organization_id,
+            data=ServiceKeyCreate(
+                label=f"{user.name} - Personal Key",
+                owner_user_id=user.id,
+            ),
+        )
+        personal_key = key_result.raw_key
+
+    await db.commit()
+
     return TokenResponse(
         access_token=create_access_token(str(user.id), str(org.id), user.role),
         refresh_token=create_refresh_token(str(user.id)),
+        personal_key=personal_key,
     )
 
 

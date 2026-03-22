@@ -38,6 +38,9 @@ async def log_usage_sync_result(
     latency_ms: int,
     request_ip: Optional[str],
     user_agent: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Background task for non-streaming requests.
@@ -55,6 +58,9 @@ async def log_usage_sync_result(
         is_streaming=False,
         request_ip=request_ip,
         user_agent=user_agent,
+        project_id=project_id,
+        team_id=team_id,
+        user_id=user_id,
     )
 
 
@@ -67,6 +73,9 @@ async def log_usage_stream_result(
     latency_ms: int,
     request_ip: Optional[str],
     user_agent: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Background task for streaming requests.
@@ -86,6 +95,9 @@ async def log_usage_stream_result(
         is_streaming=True,
         request_ip=request_ip,
         user_agent=user_agent,
+        project_id=project_id,
+        team_id=team_id,
+        user_id=user_id,
     )
 
 
@@ -100,6 +112,9 @@ async def _write_log(
     is_streaming: bool,
     request_ip: Optional[str],
     user_agent: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Resolve model pricing, compute cost, and INSERT a usage_log row.
@@ -134,6 +149,9 @@ async def _write_log(
                     is_streaming=is_streaming,
                     request_ip=request_ip,
                     user_agent=user_agent,
+                    project_id=project_id,
+                    team_id=team_id,
+                    user_id=user_id,
                 ),
             )
 

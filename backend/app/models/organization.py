@@ -46,3 +46,4 @@ class Organization(UUIDMixin, TimestampMixin, Base):
     shadow_test_results: Mapped[list["ShadowTestResult"]] = relationship(back_populates="organization")
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="organization")
     tags: Mapped[list["Tag"]] = relationship(back_populates="organization")
+    projects: Mapped[list["Project"]] = relationship(back_populates="organization")
