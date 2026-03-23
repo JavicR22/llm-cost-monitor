@@ -12,8 +12,8 @@ interface ActivityTableProps {
   onPageChange: (page: number) => void;
 }
 
-function fmtUsd(v: number) {
-  return `$${v.toFixed(6)}`;
+function fmtUsd(v: number | string) {
+  return `$${Number(v).toFixed(6)}`;
 }
 
 function fmtTime(iso: string) {

@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.core.dependencies import DB, get_redis
+from app.services.alerts.alert_engine import AlertEngine, get_alert_engine
 from app.services.metering.usage_logger import log_usage_stream_result, log_usage_sync_result
 from app.services.proxy.proxy_service import ProxyService, get_proxy_service
 
@@ -23,6 +24,7 @@ router = APIRouter(tags=["proxy"])
 
 Redis = Annotated[aioredis.Redis, Depends(get_redis)]
 Proxy = Annotated[ProxyService, Depends(get_proxy_service)]
+Alerts = Annotated[AlertEngine, Depends(get_alert_engine)]
 
 
 def _extract_bearer(request: Request) -> str:
@@ -53,6 +55,7 @@ async def chat_completions(
     db: DB,
     redis: Redis,
     proxy: Proxy,
+    alert_engine: Alerts,
 ) -> Any:
     """
     OpenAI-compatible chat completions proxy.
@@ -70,12 +73,17 @@ async def chat_completions(
     # 2. Rate limit
     await proxy.check_rate_limit(str(org_id), redis)
 
-    # 3. Parse body
+    # 3. Budget + circuit breaker checks (raises 429 on hard limit or open CB)
+    soft_alerts = await alert_engine.pre_request_checks(org_id, db, redis)
+    if soft_alerts:
+        background_tasks.add_task(alert_engine.save_soft_alerts, org_id, soft_alerts)
+
+    # 4. Parse body
     body: dict = await request.json()
     model_name: str = body.get("model", "gpt-4o")
     stream: bool = body.get("stream", False)
 
-    # 4. Decrypt provider key (lives in memory only during this request)
+    # 5. Decrypt provider key (lives in memory only during this request)
     api_key = await proxy.get_decrypted_provider_key(db, org_id, "openai")
 
     # Shared logging context
@@ -89,6 +97,13 @@ async def chat_completions(
     # ------------------------------------------------------------------
     # 5a. Streaming
     # ------------------------------------------------------------------
+    # FinOps attribution — inherited from the authenticated service key
+    finops = {
+        "project_id": service_key.project_id,
+        "team_id": service_key.team_id,
+        "user_id": service_key.owner_user_id,
+    }
+
     if stream:
         # Inject include_usage so the last SSE chunk contains token counts
         body.setdefault("stream_options", {})
@@ -106,6 +121,7 @@ async def chat_completions(
             latency_ms=int((time.monotonic() - start_ms) * 1000),
             request_ip=request_ip,
             user_agent=user_agent,
+            **finops,
         )
 
         return StreamingResponse(
@@ -129,6 +145,7 @@ async def chat_completions(
         latency_ms=latency_ms,
         request_ip=request_ip,
         user_agent=user_agent,
+        **finops,
     )
 
     log.info(

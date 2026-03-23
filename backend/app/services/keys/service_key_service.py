@@ -7,12 +7,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.api_key import ServiceAPIKey
 from app.repositories.service_key_repo import (
+    assign_service_key_layers,
     create_service_key,
     get_service_key,
     list_service_keys,
     revoke_service_key,
 )
-from app.schemas.service_key import ServiceKeyCreate, ServiceKeyCreateResponse, ServiceKeyResponse
+from app.schemas.service_key import (
+    ServiceKeyAssign,
+    ServiceKeyCreate,
+    ServiceKeyCreateResponse,
+    ServiceKeyResponse,
+)
 from app.services.security.key_vault import get_key_vault
 
 log = structlog.get_logger()
@@ -35,6 +41,9 @@ async def create_key(
         key_hash=key_hash,
         key_prefix=key_prefix,
         label=data.label,
+        project_id=data.project_id,
+        team_id=data.team_id,
+        owner_user_id=data.owner_user_id,
     )
 
     log.info("service_key_created", org_id=str(org_id), key_prefix=key_prefix)
@@ -75,6 +84,33 @@ async def revoke_key(
     return _to_response(key)
 
 
+async def assign_layers(
+    db: AsyncSession,
+    key_id: uuid.UUID,
+    org_id: uuid.UUID,
+    data: ServiceKeyAssign,
+) -> ServiceKeyResponse:
+    key = await get_service_key(db, key_id, org_id)
+    if not key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "API key not found")
+
+    key = await assign_service_key_layers(
+        db,
+        key,
+        project_id=data.project_id,
+        team_id=data.team_id,
+        owner_user_id=data.owner_user_id,
+    )
+    log.info(
+        "service_key_layers_assigned",
+        org_id=str(org_id),
+        key_id=str(key_id),
+        project_id=str(data.project_id),
+        team_id=str(data.team_id),
+    )
+    return _to_response(key)
+
+
 def _to_response(key: ServiceAPIKey) -> ServiceKeyResponse:
     return ServiceKeyResponse(
         id=str(key.id),
@@ -83,4 +119,7 @@ def _to_response(key: ServiceAPIKey) -> ServiceKeyResponse:
         is_active=key.is_active,
         created_at=key.created_at,
         last_used_at=key.last_used_at,
+        project_id=key.project_id,
+        team_id=key.team_id,
+        owner_user_id=key.owner_user_id,
     )

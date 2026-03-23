@@ -13,26 +13,29 @@ import {
   useSpendByModel,
   useActivity,
 } from "@/lib/hooks/useDashboard";
+import { useSummaryReport } from "@/lib/hooks/useFinOps";
+import Link from "next/link";
 
 type DateRange = "7" | "30" | "90";
 
-function fmtUsd(v: number) {
+function fmtUsd(v: number | string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
-  }).format(v);
+  }).format(Number(v));
 }
 
-function fmtNum(v: number) {
-  return new Intl.NumberFormat("en-US").format(v);
+function fmtNum(v: number | string) {
+  return new Intl.NumberFormat("en-US").format(Number(v));
 }
 
-function fmtTokens(v: number) {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
-  return String(v);
+function fmtTokens(v: number | string) {
+  const n = Number(v);
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export default function DashboardPage() {
@@ -45,6 +48,15 @@ export default function DashboardPage() {
   const { data: spendOverTime, isLoading: loadingChart } = useSpendOverTime(daysNum);
   const { data: byModel, isLoading: loadingModel } = useSpendByModel(daysNum);
   const { data: activity, isLoading: loadingActivity } = useActivity(activityPage);
+
+  // FinOps: project summary for the selected date range
+  const toDate = new Date().toISOString().split("T")[0];
+  const fromDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysNum);
+    return d.toISOString().split("T")[0];
+  })();
+  const { data: projectSummary } = useSummaryReport(fromDate, toDate);
 
   return (
     <div className="space-y-8">
@@ -138,6 +150,68 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 3 — Activity table */}
+      {/* Row 3 — Spend by Project (only shown when projects exist) */}
+      {(projectSummary ?? []).length > 0 && (
+        <div className="overflow-hidden rounded-xl bg-[#1E293B]" style={{ border: "1px solid #334155" }}>
+          <div className="flex items-center justify-between border-b border-[#0F172A] bg-[#0F172A] px-6 py-4">
+            <h3 className="text-base font-semibold text-[#F8FAFC]">Spend by Project</h3>
+            <Link
+              href="/dashboard/projects"
+              className="text-xs font-medium text-[#60A5FA] hover:text-[#3B82F6]"
+            >
+              View all projects →
+            </Link>
+          </div>
+          <div className="divide-y divide-[#0F172A]">
+            {(projectSummary ?? []).map((p) => {
+              const cost = Number(p.total_cost);
+              const limit = p.budget_limit ? Number(p.budget_limit) : null;
+              const pct = limit ? Math.min((cost / limit) * 100, 100) : null;
+              const barColor =
+                pct == null ? "#3B82F6" : pct >= 100 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#10B981";
+
+              return (
+                <Link
+                  key={p.project_id}
+                  href={`/dashboard/projects/${p.project_id}`}
+                  className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#334155]/20"
+                >
+                  <div className="min-w-[140px] flex-1">
+                    <p className="text-sm font-medium text-[#F8FAFC]">{p.project_name}</p>
+                    <p className="mt-0.5 text-xs text-[#64748B]">
+                      {p.requests.toLocaleString()} requests
+                    </p>
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#334155]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: limit ? `${pct}%` : "100%",
+                          maxWidth: "100%",
+                          backgroundColor: barColor,
+                          opacity: 0.8,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="w-28 text-right font-mono text-sm text-[#F8FAFC]">
+                    {fmtUsd(cost)}
+                  </p>
+                  {limit && (
+                    <p className="w-20 text-right text-xs text-[#64748B]">
+                      / {fmtUsd(limit)}
+                    </p>
+                  )}
+                  {!limit && <div className="w-20" />}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Row 4 — Activity table */}
       <ActivityTable
         items={activity?.items ?? []}
         total={activity?.total ?? 0}

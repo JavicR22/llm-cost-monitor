@@ -22,6 +22,7 @@ export function TopBar({
   function handleLogout() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    document.cookie = "llm_monitor_token=; path=/; max-age=0";
     router.push("/login");
   }
 
@@ -38,7 +39,6 @@ export function TopBar({
       <div className="flex items-center gap-4">
         {/* Notifications */}
         <button
-          onClick={handleLogout /* placeholder */}
           className="relative flex h-10 w-10 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#1E293B] hover:text-[#F8FAFC]"
           aria-label="Notifications"
         >

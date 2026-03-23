@@ -38,6 +38,9 @@ async def log_usage_sync_result(
     latency_ms: int,
     request_ip: Optional[str],
     user_agent: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Background task for non-streaming requests.
@@ -55,6 +58,9 @@ async def log_usage_sync_result(
         is_streaming=False,
         request_ip=request_ip,
         user_agent=user_agent,
+        project_id=project_id,
+        team_id=team_id,
+        user_id=user_id,
     )
 
 
@@ -67,6 +73,9 @@ async def log_usage_stream_result(
     latency_ms: int,
     request_ip: Optional[str],
     user_agent: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Background task for streaming requests.
@@ -86,6 +95,9 @@ async def log_usage_stream_result(
         is_streaming=True,
         request_ip=request_ip,
         user_agent=user_agent,
+        project_id=project_id,
+        team_id=team_id,
+        user_id=user_id,
     )
 
 
@@ -100,6 +112,9 @@ async def _write_log(
     is_streaming: bool,
     request_ip: Optional[str],
     user_agent: Optional[str],
+    project_id: Optional[uuid.UUID] = None,
+    team_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Resolve model pricing, compute cost, and INSERT a usage_log row.
@@ -111,8 +126,8 @@ async def _write_log(
             pricing = await get_model_pricing(model_name, db, redis)
 
             if not pricing:
-                log.warning(
-                    "usage_log_skipped_unknown_model",
+                log.error(
+                    "usage_log_skipped_unknown_model — add this model to the 'models' table",
                     model=model_name,
                     org_id=str(org_id),
                 )
@@ -134,8 +149,15 @@ async def _write_log(
                     is_streaming=is_streaming,
                     request_ip=request_ip,
                     user_agent=user_agent,
+                    project_id=project_id,
+                    team_id=team_id,
+                    user_id=user_id,
                 ),
             )
+
+            # Alert engine — runs in the same background task, after the log is written
+            from app.services.alerts.alert_engine import get_alert_engine
+            await get_alert_engine().post_request_tasks(org_id, cost)
 
             log.info(
                 "usage_logged",

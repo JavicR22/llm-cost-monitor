@@ -26,5 +26,9 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+    # Email notifications (Resend)
+    RESEND_API_KEY: str = ""           # empty = notifications disabled
+    NOTIFICATIONS_FROM_EMAIL: str = "alerts@llmcostmonitor.com"
+
 
 settings = Settings()

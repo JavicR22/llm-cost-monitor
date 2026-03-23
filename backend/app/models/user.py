@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
-UserRole = Enum("owner", "admin", "viewer", name="user_role")
+UserRole = Enum("owner", "admin", "viewer", "project_leader", "developer", name="user_role")
 
 
 class User(UUIDMixin, TimestampMixin, Base):
@@ -27,6 +27,20 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
+    # FinOps assignment — used for developer/project_leader roles
+    assigned_project_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_team_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # UI state
+    has_seen_key_modal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # Relationships
     organization: Mapped["Organization"] = relationship(back_populates="users")
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="user")
+    developer_api_key: Mapped[Optional["DeveloperAPIKey"]] = relationship(
+        back_populates="user", uselist=False
+    )

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AuthBranding } from "@/components/auth/AuthBranding";
+import { RawKeyModal } from "@/components/keys/RawKeyModal";
 import { apiClient } from "@/lib/api";
 
 interface LoginResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
+  personal_key?: string;
 }
 
 export default function LoginPage() {
@@ -18,6 +20,7 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [personalKey, setPersonalKey] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,12 +33,26 @@ export default function LoginPage() {
       });
       localStorage.setItem("access_token", data.access_token);
       if (remember) localStorage.setItem("refresh_token", data.refresh_token);
-      window.location.href = "/dashboard";
+      document.cookie = `llm_monitor_token=${data.access_token}; path=/; max-age=604800; SameSite=Strict`;
+      if (data.personal_key) {
+        setPersonalKey(data.personal_key);
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid credentials");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (personalKey) {
+    return (
+      <RawKeyModal
+        rawKey={personalKey}
+        onClose={() => { window.location.href = "/dashboard"; }}
+      />
+    );
   }
 
   return (

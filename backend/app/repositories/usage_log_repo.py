@@ -27,6 +27,10 @@ class UsageLogCreate:
     request_ip: Optional[str] = None
     user_agent: Optional[str] = None
     tags: Optional[list] = None
+    # FinOps attribution — inherited from the service key at request time
+    project_id: Optional[uuid.UUID] = None
+    team_id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
 
 
 async def create_usage_log(db: AsyncSession, data: UsageLogCreate) -> UsageLog:
@@ -45,6 +49,9 @@ async def create_usage_log(db: AsyncSession, data: UsageLogCreate) -> UsageLog:
         request_ip=data.request_ip,
         user_agent=data.user_agent,
         tags=data.tags,
+        project_id=data.project_id,
+        team_id=data.team_id,
+        user_id=data.user_id,
     )
     db.add(row)
     await db.commit()

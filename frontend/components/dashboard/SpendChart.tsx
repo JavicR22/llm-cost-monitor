@@ -20,8 +20,8 @@ function fmt(date: string) {
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function fmtUsd(v: number) {
-  return `$${v.toFixed(2)}`;
+function fmtUsd(v: number | string) {
+  return `$${Number(v).toFixed(2)}`;
 }
 
 export function SpendChart({ data, loading }: SpendChartProps) {
@@ -31,7 +31,7 @@ export function SpendChart({ data, loading }: SpendChartProps) {
         <h3 className="text-base font-semibold text-[#F8FAFC]">Daily Spend</h3>
         {data.length > 0 && (
           <span className="text-xs text-[#64748B]">
-            Total: {fmtUsd(data.reduce((s, d) => s + d.spend_usd, 0))}
+            Total: {fmtUsd(data.reduce((s, d) => s + Number(d.spend_usd), 0))}
           </span>
         )}
       </div>
